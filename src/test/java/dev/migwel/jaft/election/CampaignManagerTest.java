@@ -25,7 +25,7 @@ class CampaignManagerTest {
         CampaignManager campaignManager = new CampaignManager(taskScheduler, electionService);
         for (int i = 0; i < 10; i++) {
             Thread.sleep(200);
-            campaignManager.postponeRevote();
+            campaignManager.postponeElection();
         }
         verify(electionService, never()).startElection();
     }

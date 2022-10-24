@@ -22,16 +22,16 @@ public class CampaignManager {
         this.taskScheduler = taskScheduler;
         this.electionService = electionService;
         this.electionTimeoutMs = MIN_ELECTION_TIMEOUT_MS + (long) (Math.random() * (MAX_ELECTION_TIMEOUT_MS - MIN_ELECTION_TIMEOUT_MS));
-        scheduleRevote(INITIAL_ELECTION_DELAY);
+        scheduleElection(INITIAL_ELECTION_DELAY);
     }
 
-    private void scheduleRevote(long startInMs) {
+    private void scheduleElection(long startInMs) {
         revoteResult = this.taskScheduler.scheduleWithFixedDelay(electionService::startElection, new Date(new Date().getTime() + startInMs), electionTimeoutMs);
     }
 
-    public void postponeRevote() {
+    public void postponeElection() {
         cancelRevote();
-        scheduleRevote(electionTimeoutMs);
+        scheduleElection(electionTimeoutMs);
     }
 
     private void cancelRevote() {

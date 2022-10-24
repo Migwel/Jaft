@@ -7,13 +7,16 @@ import dev.migwel.jaft.server.ServerState;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class VoteServiceTest {
+
+    private final CampaignManager campaignManager = mock(CampaignManager.class);
 
     @Test
     void rejectVoteRequestWithLowerTerm() {
         ServerState serverState = new ServerState(3);
-        VoteService voteService = new VoteService(serverState);
+        VoteService voteService = new VoteService(serverState, campaignManager);
         RequestVoteRequest request = new RequestVoteRequest(2, "myId", 0, 0);
         RequestVoteResponse response = voteService.requestVote(request);
         assertFalse(response.voteGranted());
@@ -22,7 +25,7 @@ class VoteServiceTest {
     @Test
     void rejectVoteRequestIfAlreadyVotedInCurrentTermForOtherCandidate() {
         ServerState serverState = new ServerState(3);
-        VoteService voteService = new VoteService(serverState);
+        VoteService voteService = new VoteService(serverState, campaignManager);
         RequestVoteRequest request = new RequestVoteRequest(4, "myId", 0, 0);
         voteService.requestVote(request);
         RequestVoteRequest otherRequest = new RequestVoteRequest(4, "myOtherId", 0, 0);
@@ -33,7 +36,7 @@ class VoteServiceTest {
     @Test
     void grantVoteRequestIfAlreadyVotedInCurrentTermForSameCandidate() {
         ServerState serverState = new ServerState(3);
-        VoteService voteService = new VoteService(serverState);
+        VoteService voteService = new VoteService(serverState, campaignManager);
         RequestVoteRequest request = new RequestVoteRequest(4, "myId", 0, 0);
         voteService.requestVote(request);
         RequestVoteRequest otherRequest = new RequestVoteRequest(4, "myId", 0, 0);
@@ -44,7 +47,7 @@ class VoteServiceTest {
     @Test
     void serverInCorrectStateAfterGrantingVote() {
         ServerState serverState = new ServerState(3);
-        VoteService voteService = new VoteService(serverState);
+        VoteService voteService = new VoteService(serverState, campaignManager);
         RequestVoteRequest request = new RequestVoteRequest(4, "myId", 0, 0);
         voteService.requestVote(request);
         assertEquals(4, serverState.getCurrentTerm());
@@ -55,7 +58,7 @@ class VoteServiceTest {
     @Test
     void grantVoteRequestWithAllGoodValues() {
         ServerState serverState = new ServerState(3);
-        VoteService voteService = new VoteService(serverState);
+        VoteService voteService = new VoteService(serverState, campaignManager);
         RequestVoteRequest request = new RequestVoteRequest(4, "myId", 0, 0);
         RequestVoteResponse response = voteService.requestVote(request);
         assertTrue(response.voteGranted());

@@ -14,9 +14,11 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public class VoteService {
 
     private final ServerState serverState;
+    private final CampaignManager campaignManager;
 
-    public VoteService(ServerState serverState) {
+    public VoteService(ServerState serverState, CampaignManager campaignManager) {
         this.serverState = serverState;
+        this.campaignManager = campaignManager;
     }
 
     //TODO: Check if synchronized can be moved to something more granular
@@ -34,6 +36,7 @@ public class VoteService {
         serverState.setCurrentTerm(request.term());
         serverState.setLeadership(Leadership.Follower);
         serverState.setVotedFor(request.candidateId());
+        campaignManager.postponeElection();
         return new RequestVoteResponse(request.term(), true);
     }
 }
