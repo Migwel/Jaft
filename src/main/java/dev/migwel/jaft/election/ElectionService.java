@@ -82,6 +82,10 @@ public class ElectionService {
     private Integer requestVotes(long electionTerm) {
         int votes = 1; // We vote for ourselves
         for (ServerInfo serverInfo : clusterInfo.serversInfo()) {
+            //Don't ask ourselves for our vote
+            if (serverInfo.equals(this.serverInfo)) {
+                continue;
+            }
             RequestVoteResponse response = requestVote(electionTerm, serverInfo);
             if (response == null) {
                 continue;

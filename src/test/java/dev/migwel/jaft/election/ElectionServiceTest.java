@@ -9,6 +9,7 @@ import dev.migwel.jaft.server.ServerInfo;
 import dev.migwel.jaft.server.ServerState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 
 import javax.net.ssl.SSLSession;
@@ -33,7 +34,7 @@ class ElectionServiceTest {
     HttpClient httpClient = mock(HttpClient.class);
     ServerState serverState;
     ClusterInfo clusterInfo = buildClusterInfo();
-    ServerInfo serverInfo = buildServerInfo("MyServer-1");
+    ServerInfo serverInfo = clusterInfo.serversInfo().get(0);
     ObjectMapper objectMapper = new ObjectMapper();
     ElectionService electionService = new ElectionService(httpClient, serverState, clusterInfo, serverInfo, objectMapper);
 
@@ -46,14 +47,14 @@ class ElectionServiceTest {
     private ClusterInfo buildClusterInfo() {
         List<ServerInfo> serversInfo = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            ServerInfo serverInfo = buildServerInfo("MyServer-"+ i);
+            ServerInfo serverInfo = buildServerInfo(i);
             serversInfo.add(serverInfo);
         }
         return new ClusterInfo(serversInfo);
     }
 
-    private ServerInfo buildServerInfo(String serverId) {
-        return new ServerInfo(serverId, "https://localhost", "8080");
+    private ServerInfo buildServerInfo(int serverId) {
+        return new ServerInfo("MyServer-"+ serverId, "https://localhost", "808"+ serverId);
     }
 
     @Test
@@ -102,6 +103,17 @@ class ElectionServiceTest {
             throw new RuntimeException("Could not await termination");
         }
         assertEquals(Leadership.Follower, serverState.getLeadership());
+    }
+
+    @Test
+    void dontRequestVoteFromOurselves() throws IOException, InterruptedException {
+        when(httpClient.send(any(), any())).thenReturn(buildHttpResponse(200, 1, true));
+        ArgumentCaptor<HttpRequest> arg = ArgumentCaptor.forClass(HttpRequest.class);
+        electionService.startElection();
+        verify(httpClient, atLeast(1)).send(arg.capture(), any());
+        for (HttpRequest request : arg.getAllValues()) {
+            assertNotEquals(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort() + "/requestVote"), request.uri());
+        }
     }
 
     private HttpResponse<Object> buildHttpResponse(int statusCode, long term, boolean voteGranted) {
