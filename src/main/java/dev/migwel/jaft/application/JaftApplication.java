@@ -32,27 +32,6 @@ public class JaftApplication {
 		return new ServerState(0, Leadership.Follower);
 	}
 
-	//TODO: Move this to a properties file or command line argument or something
-	@Bean
-	public ServerInfo serverInfo() {
-		return buildServerInfo("MyServerId-0", "8080");
-	}
-
-	//TODO: Move this to a properties file or something
-	@Bean
-	public ClusterInfo clusterInfo() {
-		List<ServerInfo> serversInfo = new ArrayList<>();
-		for (int i = 0; i < 5; i++) {
-			ServerInfo serverInfo = buildServerInfo("MyServer-"+ i, "808"+ i);
-			serversInfo.add(serverInfo);
-		}
-		return new ClusterInfo(serversInfo);
-	}
-
-	private ServerInfo buildServerInfo(String serverId, String port) {
-		return new ServerInfo(serverId, "https://localhost", port);
-	}
-
 	@Bean
 	public HttpClient httpClient() {
 		return HttpClient.newBuilder()
