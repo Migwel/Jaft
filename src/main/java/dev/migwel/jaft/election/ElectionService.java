@@ -22,7 +22,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Service
@@ -130,7 +129,7 @@ public class ElectionService {
     @Nonnull
     private HttpRequest buildHttpRequest(ServerInfo serverInfo, String body) {
         return HttpRequest.newBuilder()
-                .uri(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort()))
+                .uri(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort() + "/requestVote"))
                 .header("Content-type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
