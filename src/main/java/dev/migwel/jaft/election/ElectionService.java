@@ -21,8 +21,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @ParametersAreNonnullByDefault
@@ -34,7 +32,6 @@ public class ElectionService {
     private final ClusterInfo clusterInfo;
     private final ServerInfo serverInfo;
     private final ObjectMapper objectMapper;
-    private final Lock electionLock;
 
     @Autowired
     public ElectionService(HttpClient httpClient, ServerState serverState, ClusterInfo clusterInfo, ServerInfo serverInfo, ObjectMapper objectMapper) {
@@ -43,13 +40,12 @@ public class ElectionService {
         this.clusterInfo = clusterInfo;
         this.serverInfo = serverInfo;
         this.objectMapper = objectMapper;
-        this.electionLock = new ReentrantLock();
     }
 
     public void newLeader(String leaderId, long term) {
-        electionLock.lock();
+        serverState.getElectionLock().lock();
         serverState.becomeFollower(term, leaderId);
-        electionLock.unlock();
+        serverState.getElectionLock().unlock();
     }
 
     /**
@@ -57,10 +53,10 @@ public class ElectionService {
      * @return true if election is won. False otherwise
      */
     public boolean startElection() {
-        electionLock.lock();
+        serverState.getElectionLock().lock();
         serverState.startElection();
         long electionTerm = serverState.getCurrentTerm();
-        electionLock.unlock();
+        serverState.getElectionLock().unlock();
         Integer votes = requestVotes(electionTerm);
         if (votes == null) {
             return false;
@@ -68,15 +64,20 @@ public class ElectionService {
 
         //It can happen that a new leader has been elected in the meantime
         //In which case we should not become a leader
-        if (serverState.getLeadership() != Leadership.Candidate) {
-            return false;
-        }
+        serverState.getElectionLock().lock();
+        try {
+            if (serverState.getLeadership() != Leadership.Candidate) {
+                return false;
+            }
 
-        if (votes > clusterInfo.serversInfo().size() / 2) {
-            serverState.setLeadership(Leadership.Leader);
-            return true;
+            if (votes > clusterInfo.serversInfo().size() / 2) {
+                serverState.setLeadership(Leadership.Leader);
+                return true;
+            }
+            return false;
+        } finally {
+            serverState.getElectionLock().unlock();
         }
-        return false;
     }
 
     private Integer requestVotes(long electionTerm) {
@@ -94,12 +95,13 @@ public class ElectionService {
                 votes++;
                 continue;
             }
+            serverState.getElectionLock().lock();
             if (response.term() > electionTerm) {
-                electionLock.lock();
                 serverState.becomeFollower(response.term());
-                electionLock.unlock();
+                serverState.getElectionLock().unlock();
                 return null;
             }
+            serverState.getElectionLock().unlock();
         }
         return votes;
     }

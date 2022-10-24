@@ -6,6 +6,8 @@ import javax.annotation.CheckForNull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * This represents the mutable state of a server, things that may change as elections happen for example
@@ -22,6 +24,7 @@ public class ServerState {
     private final List<LogEntry<?, ?>> logs;
     private long commitIndex;
     private long lastApplied;
+    private final Lock electionLock;
 
     public ServerState() {
         this(0);
@@ -39,6 +42,7 @@ public class ServerState {
         this.logs = new ArrayList<>();
         this.commitIndex = 0;
         this.lastApplied = 0;
+        this.electionLock = new ReentrantLock();
     }
 
     public long getCurrentTerm() {
@@ -112,6 +116,10 @@ public class ServerState {
 
     public void setCurrentLeader(String currentLeader) {
         this.currentLeader = currentLeader;
+    }
+
+    public Lock getElectionLock() {
+        return electionLock;
     }
 
     public void startElection() {
