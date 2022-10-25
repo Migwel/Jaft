@@ -57,20 +57,23 @@ public class ElectionService {
         serverState.startElection();
         long electionTerm = serverState.getCurrentTerm();
         serverState.getElectionLock().unlock();
-        Integer votes = requestVotes(electionTerm);
-        if (votes == null) {
-            return false;
-        }
+        VotingResult votingResult = requestVotes(electionTerm);
 
-        //It can happen that a new leader has been elected in the meantime
-        //In which case we should not become a leader
         serverState.getElectionLock().lock();
         try {
+            //It can happen that a new leader has been elected in the meantime
+            //In which case we should not become a leader
             if (serverState.getLeadership() != Leadership.Candidate) {
                 return false;
             }
 
-            if (votes > clusterInfo.serversInfo().size() / 2) {
+            if (votingResult.highestTermReceived > serverState.getCurrentTerm()) {
+                serverState.setLeadership(Leadership.Follower);
+                serverState.setCurrentTerm(votingResult.highestTermReceived);
+                return false;
+            }
+
+            if (votingResult.nbVotes > clusterInfo.serversInfo().size() / 2) {
                 serverState.setLeadership(Leadership.Leader);
                 return true;
             }
@@ -80,8 +83,9 @@ public class ElectionService {
         }
     }
 
-    private Integer requestVotes(long electionTerm) {
+    private VotingResult requestVotes(long electionTerm) {
         int votes = 1; // We vote for ourselves
+        long highestTermReceived = 0;
         for (ServerInfo serverInfo : clusterInfo.serversInfo()) {
             //Don't ask ourselves for our vote
             if (serverInfo.equals(this.serverInfo)) {
@@ -91,20 +95,15 @@ public class ElectionService {
             if (response == null) {
                 continue;
             }
+            highestTermReceived = Math.max(highestTermReceived, response.term());
             if (response.voteGranted()) {
                 votes++;
-                continue;
             }
-            serverState.getElectionLock().lock();
-            if (response.term() > electionTerm) {
-                serverState.becomeFollower(response.term());
-                serverState.getElectionLock().unlock();
-                return null;
-            }
-            serverState.getElectionLock().unlock();
         }
-        return votes;
+        return new VotingResult(votes, highestTermReceived);
     }
+
+    private record VotingResult(int nbVotes, long highestTermReceived){}
 
     @CheckForNull
     private RequestVoteResponse requestVote(long electionTerm, ServerInfo serverInfo) {
