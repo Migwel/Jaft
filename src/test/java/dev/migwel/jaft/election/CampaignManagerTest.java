@@ -12,7 +12,8 @@ class CampaignManagerTest {
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.initialize();
         ElectionService electionService = mock(ElectionService.class);
-        new CampaignManager(taskScheduler, electionService);
+        HeartbeatService heartbeatService = mock(HeartbeatService.class);
+        new CampaignManager(taskScheduler, electionService, heartbeatService);
         Thread.sleep(3000);
         verify(electionService, atLeast(1)).startElection();
     }
@@ -22,7 +23,8 @@ class CampaignManagerTest {
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.initialize();
         ElectionService electionService = mock(ElectionService.class);
-        CampaignManager campaignManager = new CampaignManager(taskScheduler, electionService);
+        HeartbeatService heartbeatService = mock(HeartbeatService.class);
+        CampaignManager campaignManager = new CampaignManager(taskScheduler, electionService, heartbeatService);
         for (int i = 0; i < 10; i++) {
             Thread.sleep(200);
             campaignManager.postponeElection();

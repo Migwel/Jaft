@@ -39,6 +39,7 @@ public class LogService {
             term >= serverState.getCurrentTerm()) {
             serverState.setLeadership(Leadership.Follower);
         }
+        campaignManager.stopHeartbeat();
         serverState.getElectionLock().unlock();
     }
 
