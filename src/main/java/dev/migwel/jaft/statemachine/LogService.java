@@ -25,7 +25,7 @@ public class LogService {
             serverState.setCurrentTerm(request.term());
         }
 
-        if (serverState.getLeadership() != Leadership.Follower) {
+        if (serverState.getLeadership() != Leadership.Follower || serverState.getCurrentLeader() == null) {
             becomeFollower(request.term(), request.leaderId());
         }
 
