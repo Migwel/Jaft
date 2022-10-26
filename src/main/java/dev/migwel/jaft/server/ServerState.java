@@ -29,7 +29,7 @@ public class ServerState {
     private final List<LogEntry<?, ?>> logs;
     private long commitIndex;
     private long lastApplied;
-    private final Lock electionLock;
+    private final Object electionLock;
 
     public ServerState(ClusterInfo clusterInfo) {
         this(clusterInfo, 0);
@@ -48,7 +48,7 @@ public class ServerState {
         this.logs = new ArrayList<>();
         this.commitIndex = 0;
         this.lastApplied = 0;
-        this.electionLock = new ReentrantLock();
+        this.electionLock = new Object();
     }
 
     public long getCurrentTerm() {
@@ -56,13 +56,10 @@ public class ServerState {
     }
 
     public void setCurrentTerm(long newTerm) {
-        electionLock.lock();
-        try {
+        synchronized (electionLock){
             if (newTerm > this.currentTerm) {
                 this.currentTerm = newTerm;
             }
-        } finally {
-            electionLock.unlock();
         }
     }
 
@@ -71,19 +68,15 @@ public class ServerState {
     }
 
     public CurrentTermLeadership getCurrentTermLeadership() {
-        electionLock.lock();
-        try {
+        synchronized (electionLock){
             return new CurrentTermLeadership(currentTerm, leadership);
-        } finally {
-            electionLock.unlock();
         }
     }
 
     public record CurrentTermLeadership(long currentTerm, Leadership leadership){}
 
     public void becomeFollower(long term, @CheckForNull String newLeader) {
-        electionLock.lock();
-        try {
+        synchronized (electionLock) {
             log.info("We are becoming follower for the new leader "+ newLeader +" of term "+ term);
             if (term < currentTerm) {
                 return;
@@ -91,8 +84,6 @@ public class ServerState {
             setCurrentTerm(term);
             setLeadership(Leadership.Follower);
             setCurrentLeader(newLeader);
-        } finally {
-            electionLock.unlock();
         }
     }
 
@@ -145,19 +136,15 @@ public class ServerState {
     }
 
     public long startElection() {
-        electionLock.lock();
-        try {
+        synchronized (electionLock) {
             setLeadership(Leadership.Candidate);
             log.info("Starting election for term "+ currentTerm + 1);
             return ++this.currentTerm;
-        } finally {
-            electionLock.unlock();
         }
     }
 
     public boolean decideElection(VotingResult votingResult) {
-        electionLock.lock();
-        try {
+        synchronized (electionLock) {
             //It can happen that a new leader has been elected in the meantime
             //In which case we should not become a leader
             if (leadership != Leadership.Candidate) {
@@ -180,14 +167,11 @@ public class ServerState {
             }
             log.info("We have not received enough votes : "+ votingResult.nbVotes() + ". We cannot become leaders");
             return false;
-        } finally {
-            electionLock.unlock();
         }
     }
 
     public boolean requestVote(long term, String candidateId) {
-        electionLock.lock();
-        try {
+        synchronized (electionLock) {
             log.info("Vote request received from "+ candidateId +" for term "+ term);
             if (term < currentTerm) {
                 log.info("Term received ("+ term +") is lower than current term "+ currentTerm +")");
@@ -204,8 +188,6 @@ public class ServerState {
             setVotedFor(candidateId);
             log.info("Giving our vote to "+ candidateId +" for term "+ term);
             return true;
-        } finally {
-            electionLock.unlock();
         }
     }
 }
