@@ -1,6 +1,5 @@
 package dev.migwel.jaft.server;
 
-import dev.migwel.jaft.election.HeartbeatService;
 import dev.migwel.jaft.election.VotingResult;
 import dev.migwel.jaft.statemachine.log.LogEntry;
 import org.apache.logging.log4j.LogManager;
