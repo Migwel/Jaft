@@ -3,10 +3,12 @@ package dev.migwel.jaft.controller;
 import dev.migwel.jaft.rpc.AppendEntriesRequest;
 import dev.migwel.jaft.rpc.AppendEntriesResponse;
 import dev.migwel.jaft.statemachine.LogService;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+@Controller
 public class AppendController {
 
     private final LogService logService;
