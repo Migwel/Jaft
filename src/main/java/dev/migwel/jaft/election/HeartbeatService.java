@@ -42,21 +42,22 @@ public class HeartbeatService {
         this.httpClient = httpClient;
     }
 
-    public void sendHeartbeat() {
+    public boolean sendHeartbeat() {
         ServerState.CurrentTermLeadership currentTermLeadership = serverState.getCurrentTermLeadership();
         if (currentTermLeadership.leadership() != Leadership.Leader) {
             log.info("We were going to send a heartbeat but we're no longer the leader, "+ serverState.getCurrentLeader() +" is");
-            return;
+            return false;
         }
         String request = buildHeartbeatRequest(currentTermLeadership.currentTerm());
         if (request == null) {
             log.warn("Could not build heartbeat request");
-            return;
+            return false;
         }
         long highestTermReceived = sendHeartbeat(request);
         if (highestTermReceived > serverState.getCurrentTerm()) {
             serverState.becomeFollower(highestTermReceived, null);
         }
+        return true;
     }
 
     private long sendHeartbeat(String request) {
@@ -70,6 +71,7 @@ public class HeartbeatService {
             if (response == null) {
                 continue;
             }
+            log.info("Heartbeat sent to "+ serverInfo.serverId());
             highestTermReceived = Math.max(highestTermReceived, response.term());
         }
         return highestTermReceived;
@@ -80,7 +82,7 @@ public class HeartbeatService {
         HttpResponse<String> responseStr;
         try {
             responseStr = httpClient.send(buildHttpRequest(serverInfo, request), HttpResponse.BodyHandlers.ofString());
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException | InterruptedException | RuntimeException e) {
             log.warn("Something went wrong while calling server: "+ serverInfo, e);
             return null;
         }

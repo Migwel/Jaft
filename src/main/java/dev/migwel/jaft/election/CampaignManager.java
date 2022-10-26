@@ -1,5 +1,7 @@
 package dev.migwel.jaft.election;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -9,10 +11,11 @@ import java.util.concurrent.ScheduledFuture;
 @Component
 public class CampaignManager {
 
-    private final static long INITIAL_ELECTION_DELAY = 2 * 1000 ;
-    private final static long MIN_ELECTION_TIMEOUT_MS = 300;
-    private final static long MAX_ELECTION_TIMEOUT_MS = 600;
-    private final static long HEARTBEAT_MS = 100;
+    private final static long DEBUGGING_FACTOR = 50; //Make things slower to help debug
+    private final static long INITIAL_ELECTION_DELAY = 2 * 1000;
+    private final static long MIN_ELECTION_TIMEOUT_MS = 300 * DEBUGGING_FACTOR;
+    private final static long MAX_ELECTION_TIMEOUT_MS = 600 * DEBUGGING_FACTOR;
+    private final static long HEARTBEAT_MS = 100 * DEBUGGING_FACTOR;
 
     private final ThreadPoolTaskScheduler taskScheduler;
     private final ElectionService electionService;
@@ -46,7 +49,9 @@ public class CampaignManager {
     }
 
     private void sendHeartbeat() {
-        heartbeatService.sendHeartbeat();
+        if (!heartbeatService.sendHeartbeat()) {
+            stopHeartbeat();
+        }
     }
 
     public void stopHeartbeat() {

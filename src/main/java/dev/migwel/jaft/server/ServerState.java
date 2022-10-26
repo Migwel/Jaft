@@ -1,7 +1,10 @@
 package dev.migwel.jaft.server;
 
+import dev.migwel.jaft.election.HeartbeatService;
 import dev.migwel.jaft.election.VotingResult;
 import dev.migwel.jaft.statemachine.log.LogEntry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -17,6 +20,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 @ParametersAreNonnullByDefault
 public class ServerState {
+    private static final Logger log = LogManager.getLogger(ServerState.class);
 
     private final ClusterInfo clusterInfo;
     private long currentTerm;
@@ -81,12 +85,13 @@ public class ServerState {
     public void becomeFollower(long term, @CheckForNull String newLeader) {
         electionLock.lock();
         try {
+            log.info("We are becoming follower for the new leader "+ newLeader +" of term "+ term);
             if (term < currentTerm) {
                 return;
             }
-            this.currentTerm = term;
-            this.leadership = Leadership.Follower;
-            this.currentLeader = newLeader;
+            setCurrentTerm(term);
+            setLeadership(Leadership.Follower);
+            setCurrentLeader(newLeader);
         } finally {
             electionLock.unlock();
         }
@@ -136,14 +141,15 @@ public class ServerState {
         return currentLeader;
     }
 
-    public void setCurrentLeader(String currentLeader) {
+    public void setCurrentLeader(@CheckForNull String currentLeader) {
         this.currentLeader = currentLeader;
     }
 
     public long startElection() {
         electionLock.lock();
         try {
-            this.leadership = Leadership.Candidate;
+            setLeadership(Leadership.Candidate);
+            log.info("Starting election for term "+ currentTerm + 1);
             return ++this.currentTerm;
         } finally {
             electionLock.unlock();
@@ -156,10 +162,12 @@ public class ServerState {
             //It can happen that a new leader has been elected in the meantime
             //In which case we should not become a leader
             if (leadership != Leadership.Candidate) {
+                log.info("We are not longer candidates but "+ leadership);
                 return false;
             }
 
             if (votingResult.highestTermReceived() > currentTerm) {
+                log.info("Highest term received ("+ votingResult.highestTermReceived() +") is higher than currentTerm ("+ currentTerm +")");
                 setLeadership(Leadership.Follower);
                 setCurrentTerm(votingResult.highestTermReceived());
                 setVotedFor(null);
@@ -168,8 +176,10 @@ public class ServerState {
 
             if (votingResult.nbVotes() > clusterInfo.serversInfo().size() / 2) {
                 setLeadership(Leadership.Leader);
+                log.info("We received "+ votingResult.nbVotes() + ". We are leaders now");
                 return true;
             }
+            log.info("We have not received enough votes : "+ votingResult.nbVotes() + ". We cannot become leaders");
             return false;
         } finally {
             electionLock.unlock();
@@ -179,17 +189,21 @@ public class ServerState {
     public boolean requestVote(long term, String candidateId) {
         electionLock.lock();
         try {
+            log.info("Vote request received from "+ candidateId +" for term "+ term);
             if (term < currentTerm) {
+                log.info("Term received ("+ term +") is lower than current term "+ currentTerm +")");
                 return false;
             }
             if (term == currentTerm &&
                     !candidateId.equals(votedFor)) {
+                log.info("We already voted for this term and voted for "+ votedFor);
                 return false;
             }
 
             setCurrentTerm(term);
             setLeadership(Leadership.Follower);
             setVotedFor(candidateId);
+            log.info("Giving our vote to "+ candidateId +" for term "+ term);
             return true;
         } finally {
             electionLock.unlock();
