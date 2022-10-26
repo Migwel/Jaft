@@ -1,5 +1,6 @@
 package dev.migwel.jaft.server;
 
+import dev.migwel.jaft.election.VotingResult;
 import dev.migwel.jaft.statemachine.log.LogEntry;
 
 import javax.annotation.CheckForNull;
@@ -17,24 +18,26 @@ import java.util.concurrent.locks.ReentrantLock;
 @ParametersAreNonnullByDefault
 public class ServerState {
 
+    private final ClusterInfo clusterInfo;
     private long currentTerm;
     private String currentLeader;
-    private String votedFor;
+    @CheckForNull private String votedFor;
     private Leadership leadership;
     private final List<LogEntry<?, ?>> logs;
     private long commitIndex;
     private long lastApplied;
     private final Lock electionLock;
 
-    public ServerState() {
-        this(0);
+    public ServerState(ClusterInfo clusterInfo) {
+        this(clusterInfo, 0);
     }
 
-    public ServerState(long term) {
-        this(term, Leadership.Follower);
+    public ServerState(ClusterInfo clusterInfo, long term) {
+        this(clusterInfo, term, Leadership.Follower);
     }
 
-    public ServerState(long term, Leadership leadership) {
+    public ServerState(ClusterInfo clusterInfo, long term, Leadership leadership) {
+        this.clusterInfo = clusterInfo;
         this.currentTerm = term;
         this.currentLeader = null;
         this.leadership = leadership;
@@ -49,25 +52,44 @@ public class ServerState {
         return currentTerm;
     }
 
-    public void setCurrentTerm(long currentTerm) {
-        this.currentTerm = currentTerm;
+    public void setCurrentTerm(long newTerm) {
+        electionLock.lock();
+        try {
+            if (newTerm > this.currentTerm) {
+                this.currentTerm = newTerm;
+            }
+        } finally {
+            electionLock.unlock();
+        }
     }
 
     public Leadership getLeadership() {
         return leadership;
     }
 
-    public void becomeFollower(long term) {
-        becomeFollower(term, null);
+    public CurrentTermLeadership getCurrentTermLeadership() {
+        electionLock.lock();
+        try {
+            return new CurrentTermLeadership(currentTerm, leadership);
+        } finally {
+            electionLock.unlock();
+        }
     }
 
+    public record CurrentTermLeadership(long currentTerm, Leadership leadership){}
+
     public void becomeFollower(long term, @CheckForNull String newLeader) {
-        if(term <= currentTerm) {
-            return;
+        electionLock.lock();
+        try {
+            if (term < currentTerm) {
+                return;
+            }
+            this.currentTerm = term;
+            this.leadership = Leadership.Follower;
+            this.currentLeader = newLeader;
+        } finally {
+            electionLock.unlock();
         }
-        this.currentTerm = term;
-        this.leadership = Leadership.Follower;
-        this.currentLeader = newLeader;
     }
 
     public void setLeadership(Leadership leadership) {
@@ -78,7 +100,7 @@ public class ServerState {
         return votedFor;
     }
 
-    public void setVotedFor(String votedFor) {
+    public void setVotedFor(@CheckForNull String votedFor) {
         this.votedFor = votedFor;
     }
 
@@ -118,12 +140,59 @@ public class ServerState {
         this.currentLeader = currentLeader;
     }
 
-    public Lock getElectionLock() {
-        return electionLock;
+    public long startElection() {
+        electionLock.lock();
+        try {
+            this.leadership = Leadership.Candidate;
+            return ++this.currentTerm;
+        } finally {
+            electionLock.unlock();
+        }
     }
 
-    public void startElection() {
-        this.currentTerm++;
-        this.leadership = Leadership.Candidate;
+    public boolean decideElection(VotingResult votingResult) {
+        electionLock.lock();
+        try {
+            //It can happen that a new leader has been elected in the meantime
+            //In which case we should not become a leader
+            if (leadership != Leadership.Candidate) {
+                return false;
+            }
+
+            if (votingResult.highestTermReceived() > currentTerm) {
+                setLeadership(Leadership.Follower);
+                setCurrentTerm(votingResult.highestTermReceived());
+                setVotedFor(null);
+                return false;
+            }
+
+            if (votingResult.nbVotes() > clusterInfo.serversInfo().size() / 2) {
+                setLeadership(Leadership.Leader);
+                return true;
+            }
+            return false;
+        } finally {
+            electionLock.unlock();
+        }
+    }
+
+    public boolean requestVote(long term, String candidateId) {
+        electionLock.lock();
+        try {
+            if (term < currentTerm) {
+                return false;
+            }
+            if (term == currentTerm &&
+                    !candidateId.equals(votedFor)) {
+                return false;
+            }
+
+            setCurrentTerm(term);
+            setLeadership(Leadership.Follower);
+            setVotedFor(candidateId);
+            return true;
+        } finally {
+            electionLock.unlock();
+        }
     }
 }

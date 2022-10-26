@@ -43,9 +43,7 @@ public class ElectionService {
     }
 
     public void newLeader(String leaderId, long term) {
-        serverState.getElectionLock().lock();
         serverState.becomeFollower(term, leaderId);
-        serverState.getElectionLock().unlock();
     }
 
     /**
@@ -53,34 +51,9 @@ public class ElectionService {
      * @return true if election is won. False otherwise
      */
     public boolean startElection() {
-        serverState.getElectionLock().lock();
-        serverState.startElection();
-        long electionTerm = serverState.getCurrentTerm();
-        serverState.getElectionLock().unlock();
+        long electionTerm = serverState.startElection();
         VotingResult votingResult = requestVotes(electionTerm);
-
-        serverState.getElectionLock().lock();
-        try {
-            //It can happen that a new leader has been elected in the meantime
-            //In which case we should not become a leader
-            if (serverState.getLeadership() != Leadership.Candidate) {
-                return false;
-            }
-
-            if (votingResult.highestTermReceived > serverState.getCurrentTerm()) {
-                serverState.setLeadership(Leadership.Follower);
-                serverState.setCurrentTerm(votingResult.highestTermReceived);
-                return false;
-            }
-
-            if (votingResult.nbVotes > clusterInfo.serversInfo().size() / 2) {
-                serverState.setLeadership(Leadership.Leader);
-                return true;
-            }
-            return false;
-        } finally {
-            serverState.getElectionLock().unlock();
-        }
+        return serverState.decideElection(votingResult);
     }
 
     private VotingResult requestVotes(long electionTerm) {
@@ -102,8 +75,6 @@ public class ElectionService {
         }
         return new VotingResult(votes, highestTermReceived);
     }
-
-    private record VotingResult(int nbVotes, long highestTermReceived){}
 
     @CheckForNull
     private RequestVoteResponse requestVote(long electionTerm, ServerInfo serverInfo) {

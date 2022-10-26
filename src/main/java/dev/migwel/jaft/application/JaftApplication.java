@@ -28,8 +28,8 @@ public class JaftApplication {
 	}
 
 	@Bean
-	public ServerState serverState() {
-		return new ServerState(0, Leadership.Follower);
+	public ServerState serverState(ClusterInfo clusterInfo) {
+		return new ServerState(clusterInfo, 0, Leadership.Follower);
 	}
 
 	@Bean

@@ -22,32 +22,20 @@ public class LogService {
         if (request.term() < serverState.getCurrentTerm()) {
             return new AppendEntriesResponse(serverState.getCurrentTerm(), false);
         } else if (request.term() > serverState.getCurrentTerm()) {
-            updateTerm(request.term());
+            serverState.setCurrentTerm(request.term());
         }
 
         if (serverState.getLeadership() != Leadership.Follower) {
-            becomeFollower(request.term());
+            becomeFollower(request.term(), request.leaderId());
         }
 
         campaignManager.postponeElection();
         return new AppendEntriesResponse(serverState.getCurrentTerm(), true);
     }
 
-    private void becomeFollower(long term) {
-        serverState.getElectionLock().lock();
-        if (serverState.getLeadership() != Leadership.Follower &&
-            term >= serverState.getCurrentTerm()) {
-            serverState.setLeadership(Leadership.Follower);
-        }
+    private void becomeFollower(long term, String leaderId) {
         campaignManager.stopHeartbeat();
-        serverState.getElectionLock().unlock();
+        serverState.becomeFollower(term, leaderId);
     }
 
-    private void updateTerm(long term) {
-        serverState.getElectionLock().lock();
-        if (term > serverState.getCurrentTerm()) {
-            serverState.setCurrentTerm(term);
-        }
-        serverState.getElectionLock().unlock();
-    }
 }

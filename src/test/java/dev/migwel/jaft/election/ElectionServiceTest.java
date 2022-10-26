@@ -40,7 +40,7 @@ class ElectionServiceTest {
 
     @BeforeEach
     void initSystem() {
-        serverState = new ServerState();
+        serverState = new ServerState(clusterInfo);
         electionService = new ElectionService(httpClient, serverState, clusterInfo, serverInfo, objectMapper);
     }
 

@@ -43,25 +43,19 @@ public class HeartbeatService {
     }
 
     public void sendHeartbeat() {
-        serverState.getElectionLock().lock();
-        if (serverState.getLeadership() != Leadership.Leader) {
-            log.info("We were going to send a heartbeat but we're no longner the leader, "+ serverState.getCurrentLeader() +" is");
+        ServerState.CurrentTermLeadership currentTermLeadership = serverState.getCurrentTermLeadership();
+        if (currentTermLeadership.leadership() != Leadership.Leader) {
+            log.info("We were going to send a heartbeat but we're no longer the leader, "+ serverState.getCurrentLeader() +" is");
             return;
         }
-        String request = buildHeartbeatRequest();
-        serverState.getElectionLock().unlock();
+        String request = buildHeartbeatRequest(currentTermLeadership.currentTerm());
         if (request == null) {
             log.warn("Could not build heartbeat request");
             return;
         }
         long highestTermReceived = sendHeartbeat(request);
         if (highestTermReceived > serverState.getCurrentTerm()) {
-            serverState.getElectionLock().lock();
-            if (highestTermReceived > serverState.getCurrentTerm()) {
-                serverState.setCurrentTerm(highestTermReceived);
-                serverState.setLeadership(Leadership.Follower);
-            }
-            serverState.getElectionLock().unlock();
+            serverState.becomeFollower(highestTermReceived, null);
         }
     }
 
@@ -113,8 +107,8 @@ public class HeartbeatService {
     }
 
     @CheckForNull
-    private String buildHeartbeatRequest() {
-        AppendEntriesRequest request = new AppendEntriesRequest(serverState.getCurrentTerm(),
+    private String buildHeartbeatRequest(long currentTerm) {
+        AppendEntriesRequest request = new AppendEntriesRequest(currentTerm,
                 serverInfo.serverId(),
                 0,
                 Collections.emptyList(),

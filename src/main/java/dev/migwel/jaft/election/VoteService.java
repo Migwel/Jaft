@@ -27,26 +27,12 @@ public class VoteService {
 
     //TODO: Check if synchronized can be moved to something more granular
     @Nonnull
-    public synchronized RequestVoteResponse requestVote(RequestVoteRequest request) {
-        serverState.getElectionLock().lock();
-        try {
-            if (request.term() < serverState.getCurrentTerm()) {
-                return new RequestVoteResponse(serverState.getCurrentTerm(), false);
-            }
-
-            if (request.term() == serverState.getCurrentTerm() &&
-                    !request.candidateId().equals(serverState.getVotedFor())) {
-                return new RequestVoteResponse(serverState.getCurrentTerm(), false);
-            }
-
-            serverState.setCurrentTerm(request.term());
-            serverState.setLeadership(Leadership.Follower);
-            serverState.setVotedFor(request.candidateId());
+    public RequestVoteResponse requestVote(RequestVoteRequest request) {
+        boolean voteGranted = serverState.requestVote(request.term(), request.candidateId());
+        log.info("Vote granted: "+ voteGranted +" for candidate "+ request.candidateId());
+        if (voteGranted) {
             campaignManager.postponeElection();
-            log.info("We voted for server "+ request.candidateId());
-            return new RequestVoteResponse(request.term(), true);
-        } finally {
-            serverState.getElectionLock().unlock();
         }
+        return new RequestVoteResponse(serverState.getCurrentTerm(), voteGranted);
     }
 }
