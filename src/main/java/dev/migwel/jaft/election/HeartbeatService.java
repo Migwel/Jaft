@@ -71,7 +71,6 @@ public class HeartbeatService {
             if (response == null) {
                 continue;
             }
-            log.info("Heartbeat sent to "+ serverInfo.serverId());
             highestTermReceived = Math.max(highestTermReceived, response.term());
         }
         return highestTermReceived;
