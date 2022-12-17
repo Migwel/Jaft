@@ -2,6 +2,7 @@ package dev.migwel.jaft.application;
 
 import dev.migwel.jaft.server.ClusterInfo;
 import dev.migwel.jaft.server.ServerInfo;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -21,12 +22,11 @@ public class SystemConfiguration {
     }
 
     @Bean
-    public ServerInfo serverInfo() {
-        String serverIdStr = env.getProperty("currentServer.id");
-        if (serverIdStr == null) {
+    public ServerInfo serverInfo(@Value("${currentServerId}") String currentServerIdStr) {
+        if (currentServerIdStr == null) {
             throw new ConfigurationException("Missing id for current server");
         }
-        int serverId = Integer.parseInt(serverIdStr);
+        int serverId = Integer.parseInt(currentServerIdStr);
         return buildServerInfo(serverId);
     }
 
