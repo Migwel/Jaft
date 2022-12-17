@@ -3,13 +3,17 @@ package dev.migwel.jaft.statemachine;
 import dev.migwel.jaft.statemachine.log.AddLogEntry;
 import dev.migwel.jaft.statemachine.log.DeleteLogEntry;
 import dev.migwel.jaft.statemachine.log.LogEntry;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Component
 public class MemStateMachine implements StateMachine<String, Long> {
 
     private final Map<String, Long> state = new ConcurrentHashMap<>();
+
+    @Override
     public Long getValue(String key) {
         return state.get(key);
     }
