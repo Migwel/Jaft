@@ -64,4 +64,16 @@ class StateMachineControllerTest {
         verify(serverState, times(1)).addLog(any());
     }
 
+    @Test
+    public void deleteOnFollowerShouldRedirect() {
+        when(serverState.getLeadership()).thenReturn(Leadership.Follower);
+        ServerInfo leaderInfo = new ServerInfo("0", "http://localhost", "8080");
+        when(serverState.getCurrentLeader()).thenReturn(leaderInfo.serverId());
+        when(clusterInfo.serversInfo())
+                .thenReturn(List.of(leaderInfo));
+        ResponseEntity<Void> response = stateMachineController.delete("key");
+        verify(serverState, times(0)).addLog(any());
+        assertEquals(leaderInfo.getURI(), response.getHeaders().getLocation());
+    }
+
 }

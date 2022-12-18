@@ -30,6 +30,8 @@ public class StateMachineController {
         this.clusterInfo = clusterInfo;
     }
 
+    //TODO: At the moment, we allow get on Followers. This is not fully correct if we want fully up-to-date values
+    // Check Yugabyte blog post to implement this properly later
     @GetMapping("get")
     public ResponseEntity<KeyValue> get(@RequestBody String key) {
         return ResponseEntity
@@ -40,26 +42,33 @@ public class StateMachineController {
     @PostMapping("set")
     public ResponseEntity<Void> set(@RequestBody KeyValue keyValue) {
         if (serverState.getLeadership() != Leadership.Leader) {
-            HttpHeaders headers = new HttpHeaders();
-            String currentLeader = serverState.getCurrentLeader();
-            ServerInfo leaderServerInfo = clusterInfo.serversInfo()
-                    .stream()
-                    .filter(e -> currentLeader.equals(e.serverId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Could not find currentLeader")); // TODO: Use better exception
-            headers.setLocation(leaderServerInfo.getURI());
-            return ResponseEntity
-                    .status(HttpStatus.MOVED_PERMANENTLY)
-                    .headers(headers)
-                    .build();
+            return redirectToLeader();
         }
         AddLogEntry<String, Long> logEntry = new AddLogEntry<>(keyValue.key(), keyValue.value());
         serverState.addLog(logEntry);
         return ResponseEntity.status(HttpStatus.OK).build();
     }
 
+    private ResponseEntity<Void> redirectToLeader() {
+        HttpHeaders headers = new HttpHeaders();
+        String currentLeader = serverState.getCurrentLeader();
+        ServerInfo leaderServerInfo = clusterInfo.serversInfo()
+                .stream()
+                .filter(e -> currentLeader.equals(e.serverId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Could not find currentLeader")); // TODO: Use better exception
+        headers.setLocation(leaderServerInfo.getURI());
+        return ResponseEntity
+                .status(HttpStatus.MOVED_PERMANENTLY)
+                .headers(headers)
+                .build();
+    }
+
     @DeleteMapping("delete")
     public ResponseEntity<Void> delete(@RequestBody String key) {
+        if (serverState.getLeadership() != Leadership.Leader) {
+            return redirectToLeader();
+        }
         DeleteLogEntry<String, ?> logEntry = new DeleteLogEntry<>(key);
         serverState.addLog(logEntry);
         return ResponseEntity.status(HttpStatus.OK).build();
