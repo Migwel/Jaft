@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.migwel.jaft.rpc.RequestVoteRequest;
 import dev.migwel.jaft.rpc.RequestVoteResponse;
 import dev.migwel.jaft.server.ClusterInfo;
-import dev.migwel.jaft.server.Leadership;
 import dev.migwel.jaft.server.ServerInfo;
 import dev.migwel.jaft.server.ServerState;
 import org.apache.logging.log4j.LogManager;
@@ -17,7 +16,6 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -105,7 +103,7 @@ public class ElectionService {
     @Nonnull
     private HttpRequest buildHttpRequest(ServerInfo serverInfo, String body) {
         return HttpRequest.newBuilder()
-                .uri(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort() + "/requestVote"))
+                .uri(serverInfo.getURI("/requestVote"))
                 .header("Content-type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();

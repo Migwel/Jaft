@@ -112,7 +112,7 @@ class ElectionServiceTest {
         electionService.startElection();
         verify(httpClient, atLeast(1)).send(arg.capture(), any());
         for (HttpRequest request : arg.getAllValues()) {
-            assertNotEquals(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort() + "/requestVote"), request.uri());
+            assertNotEquals(serverInfo.getURI("/requestVote"), request.uri());
         }
     }
 

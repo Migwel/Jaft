@@ -16,7 +16,6 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -101,7 +100,7 @@ public class HeartbeatService {
     @Nonnull
     private HttpRequest buildHttpRequest(ServerInfo serverInfo, String body) {
         return HttpRequest.newBuilder()
-                .uri(URI.create(serverInfo.serverUrl() + ":"+ serverInfo.serverPort() + "/appendEntries"))
+                .uri(serverInfo.getURI("/appendEntries"))
                 .header("Content-type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
