@@ -2,6 +2,7 @@ package dev.migwel.jaft.election;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.migwel.jaft.http.HttpSender;
 import dev.migwel.jaft.rpc.AppendEntriesRequest;
 import dev.migwel.jaft.rpc.AppendEntriesResponse;
 import dev.migwel.jaft.server.ClusterInfo;
@@ -13,13 +14,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.IOException;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.Collections;
 
 @Service
@@ -31,16 +26,14 @@ public class HeartbeatService {
     private final ServerState serverState;
     private final ServerInfo serverInfo;
     private final ClusterInfo clusterInfo;
-    private final ObjectMapper objectMapper;
-    private final HttpClient httpClient;
+    private final HttpSender httpSender;
 
     @Autowired
-    public HeartbeatService(ServerState serverState, ServerInfo serverInfo, ClusterInfo clusterInfo, ObjectMapper objectMapper, HttpClient httpClient) {
+    public HeartbeatService(ServerState serverState, ServerInfo serverInfo, ClusterInfo clusterInfo, ObjectMapper objectMapper, HttpSender httpSender) {
         this.serverState = serverState;
         this.serverInfo = serverInfo;
         this.clusterInfo = clusterInfo;
-        this.objectMapper = objectMapper;
-        this.httpClient = httpClient;
+        this.httpSender = httpSender;
     }
 
     public boolean sendHeartbeat() {
@@ -49,11 +42,7 @@ public class HeartbeatService {
             log.info("We were going to send a heartbeat but we're no longer the leader, "+ serverState.getCurrentLeader() +" is");
             return false;
         }
-        String request = buildHeartbeatRequest(currentTermLeadership.currentTerm());
-        if (request == null) {
-            log.warn("Could not build heartbeat request");
-            return false;
-        }
+        AppendEntriesRequest request = buildHeartbeatRequest(currentTermLeadership.currentTerm());
         long highestTermReceived = sendHeartbeat(request);
         if (highestTermReceived > serverState.getCurrentTerm()) {
             serverState.becomeFollower(highestTermReceived, null);
@@ -61,14 +50,14 @@ public class HeartbeatService {
         return true;
     }
 
-    private long sendHeartbeat(String request) {
+    private long sendHeartbeat(AppendEntriesRequest request) {
         long highestTermReceived = serverState.getCurrentTerm();
         for (ServerInfo serverInfo : clusterInfo.serversInfo()) {
             //Don't ask ourselves for our vote
             if (serverInfo.equals(this.serverInfo)) {
                 continue;
             }
-            AppendEntriesResponse response = sendHeartbeat(serverInfo, request);
+            AppendEntriesResponse response = httpSender.send(serverInfo.getURI("/appendEntries"), request, AppendEntriesResponse.class);
             if (response == null) {
                 continue;
             }
@@ -77,49 +66,11 @@ public class HeartbeatService {
         return highestTermReceived;
     }
 
-    @CheckForNull
-    private AppendEntriesResponse sendHeartbeat(ServerInfo serverInfo, String request) {
-        HttpResponse<String> responseStr;
-        try {
-            responseStr = httpClient.send(buildHttpRequest(serverInfo, request), HttpResponse.BodyHandlers.ofString());
-        } catch (IOException | InterruptedException | RuntimeException e) {
-            log.warn("Something went wrong while calling server: "+ serverInfo, e);
-            return null;
-        }
-        if (responseStr.statusCode() != 200) {
-            return null;
-        }
-        AppendEntriesResponse response;
-        try {
-            response = objectMapper.readValue(responseStr.body(), AppendEntriesResponse.class);
-        } catch (JsonProcessingException e) {
-            log.warn("Could not deserialize the response: "+ responseStr.body(), e);
-            return null;
-        }
-        return response;
-    }
-
-    @Nonnull
-    private HttpRequest buildHttpRequest(ServerInfo serverInfo, String body) {
-        return HttpRequest.newBuilder()
-                .uri(serverInfo.getURI("/appendEntries"))
-                .header("Content-type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-    }
-
-    @CheckForNull
-    private String buildHeartbeatRequest(long currentTerm) {
-        AppendEntriesRequest request = new AppendEntriesRequest(currentTerm,
+    private AppendEntriesRequest buildHeartbeatRequest(long currentTerm) {
+        return new AppendEntriesRequest(currentTerm,
                 serverInfo.serverId(),
                 0,
                 Collections.emptyList(),
                 0);
-        try {
-            return objectMapper.writeValueAsString(request);
-        } catch (JsonProcessingException e) {
-            log.warn("Something went wrong while serializing the request", e);
-            return null;
-        }
     }
 }
