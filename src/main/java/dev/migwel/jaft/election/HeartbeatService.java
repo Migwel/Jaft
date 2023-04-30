@@ -10,6 +10,7 @@ import dev.migwel.jaft.server.ServerInfo;
 import dev.migwel.jaft.server.ServerState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.CheckForNull;
@@ -33,6 +34,7 @@ public class HeartbeatService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
+    @Autowired
     public HeartbeatService(ServerState serverState, ServerInfo serverInfo, ClusterInfo clusterInfo, ObjectMapper objectMapper, HttpClient httpClient) {
         this.serverState = serverState;
         this.serverInfo = serverInfo;

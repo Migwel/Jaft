@@ -1,5 +1,6 @@
 package dev.migwel.jaft.election;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ public class CampaignManager {
     private ScheduledFuture<?> revoteResult;
     private ScheduledFuture<?> heartbeatResult;
 
+   @Autowired
     public CampaignManager(ThreadPoolTaskScheduler taskScheduler, ElectionService electionService, HeartbeatService heartbeatService) {
         this.taskScheduler = taskScheduler;
         this.electionService = electionService;

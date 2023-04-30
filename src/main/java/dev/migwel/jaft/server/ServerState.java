@@ -4,9 +4,11 @@ import dev.migwel.jaft.election.VotingResult;
 import dev.migwel.jaft.statemachine.log.LogEntry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,15 +22,19 @@ public class ServerState {
     private static final Logger log = LogManager.getLogger(ServerState.class);
 
     private final ClusterInfo clusterInfo;
+    @GuardedBy("electionLock")
     private long currentTerm;
+    @GuardedBy("electionLock")
     private String currentLeader;
     @CheckForNull private String votedFor;
+    @GuardedBy("electionLock")
     private Leadership leadership;
     private final List<LogEntry<?, ?>> logs;
     private long commitIndex;
     private long lastApplied;
     private final Object electionLock;
 
+    @Autowired
     public ServerState(ClusterInfo clusterInfo) {
         this(clusterInfo, 0);
     }
@@ -97,32 +103,8 @@ public class ServerState {
         this.votedFor = votedFor;
     }
 
-    public List<LogEntry<?, ?>> getLogs() {
-        return logs;
-    }
-
     public void addLog(LogEntry<?, ?> logEntry) {
         logs.add(logEntry);
-    }
-
-    public long getCommitIndex() {
-        return commitIndex;
-    }
-
-    public void setCommitIndex(long commitIndex) {
-        this.commitIndex = commitIndex;
-    }
-
-    public long getLastApplied() {
-        return lastApplied;
-    }
-
-    public void setLastApplied(long lastApplied) {
-        this.lastApplied = lastApplied;
-    }
-
-    public long nextTerm() {
-        return ++this.currentTerm;
     }
 
     public String getCurrentLeader() {
